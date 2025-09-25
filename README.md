@@ -8,16 +8,16 @@ Broj indeksa: RA118/2021
 ```matlab
 project_root/
 ├─ data/
-│ ├─ original_images/ # Ulazne slike (DICOM/PNG/JPG/…)
+│ ├─ original_images/           # Ulazne slike (DICOM/PNG/JPG/…)
 ├─ src/
-│ ├─ main_gui.m # GUI za ručni rad i testiranje
-│ ├─ loadImages.m # Učitavanje i osnovni preprocessing
-│ ├─ defineAxis.m # Definisanje ose simetrije
-│ ├─ reflectImageOverLine.m # Refleksija slike oko ose
-│ ├─ compareSymmetry.m # Izračun metrika simetrije
-│ ├─ showResults.m # Vizuelizacija i eksport
-│ └─ utils_functions.m # Pomoćne funkcije
-├─ results/ # Generisani rezultati i izveštaji
+│ ├─ main_gui.m                 # GUI za ručni rad i testiranje
+│ ├─ loadImages.m               # Učitavanje i osnovni preprocessing
+│ ├─ defineAxis.m               # Definisanje ose simetrije
+│ ├─ reflectImageOverLine.m     # Refleksija slike oko ose
+│ ├─ compareSymmetry.m          # Proračun metrika simetrije
+│ ├─ showResults.m              # Vizuelizacija i eksport
+│ └─ utils_functions.m          # Pomoćne funkcije
+├─ results/                     # Generisani rezultati i izveštaji
 └─ project_gamma_symmetry.m 
 ```
 ---
