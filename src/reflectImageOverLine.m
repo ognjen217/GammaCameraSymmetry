@@ -1,5 +1,7 @@
 function Iref = reflectImageOverLine(I, slope, intercept)
-    I = im2double(I);   % <<< stabilno za interp2
+% REFLECTIMAGEOVERLINE - reflektuje sliku I preko prave y = slope*x + intercept.
+% Obavezno radi u double i koristi interp2.
+    I = im2double(I);
 
     [H, W] = size(I);
     [X, Y] = meshgrid(1:W, 1:H);
@@ -14,5 +16,5 @@ function Iref = reflectImageOverLine(I, slope, intercept)
     Xr = X - 2 * a .* D / denom;
     Yr = Y - 2 * bb .* D / denom;
 
-    Iref = interp2(X, Y, I, Xr, Yr, 'linear', 0);  % double, 0..1
+    Iref = interp2(X, Y, I, Xr, Yr, 'linear', 0);
 end

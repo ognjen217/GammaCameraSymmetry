@@ -1,4 +1,5 @@
 function [numMismatch, shift, areaRatio, mismatchMask] = compareSymmetry(I, Iref)
+% COMPARESYMMETRY - meri nepodudaranje izmedju originala i refleksije.
     I    = im2double(I);
     Iref = im2double(Iref);
 
@@ -22,3 +23,5 @@ function [numMismatch, shift, areaRatio, mismatchMask] = compareSymmetry(I, Iref
         areaRatio = NaN;
     end
 end
+% ------------------------------------------------------------
+% --- IGNORE ---
