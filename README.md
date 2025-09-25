@@ -18,7 +18,7 @@ project_root/
 │ ├─ showResults.m              # Vizuelizacija i eksport
 │ └─ utils_functions.m          # Pomoćne funkcije
 ├─ results/                     # Generisani rezultati i izveštaji
-└─ project_gamma_symmetry.m 
+└─ project_gamma_symmetry.m     # fajl koji je potrebno pokrenuti u komandnoj liniji
 ```
 ---
 
