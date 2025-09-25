@@ -1,122 +1,215 @@
 function main_gui
-% MAIN_GUI – Glavna MATLAB UI aplikacija za analizu simetrije slika.
-% Koristi pomoćne funkcije iz foldera src i src/utils.
-%
-% Fajlovi koje koristi:
-%   src/loadImages.m
-%   src/defineAxis.m
-%   src/reflectImageOverLine.m
-%   src/compareSymmetry.m
-%   src/showResults.m
-%   src/utils/*.m  (getDefaultDirs, saveResults*, ensureDir, ...)
-%
-% Autor: (ti)
+% MAIN_GUI – UI za analizu simetrije slika (DICOM + raster).
+% - Lista levo se automatski puni iz data/original_images
+% - Filter tasteri .dcm i .png/jpg
+% - Definiši osu: levi klik = dodaj tačku, DESNI klik = gotovo
+% - Analiza: crveno = nepoklapanje, zeleno (#288d46) = poklapanje
 
-    % --- Osiguraj da je ceo src/ na putu (uklj. utils/) ---
-    here = mfilename('fullpath');
-    srcDir = fileparts(here);                         % .../src
-    addpath(genpath(srcDir));                        % src + src/utils
+    % PATH: uključi ceo src/ (i utils/)
+    here   = mfilename('fullpath');
+    srcDir = fileparts(here);
+    addpath(genpath(srcDir));
 
     % ---------- UI ----------
-    fig = uifigure('Name','Analiza simetrije slika','Position',[100 100 820 560]);
+    fig = uifigure('Name','Analiza simetrije slika','Position',[100 100 840 600]);
 
-    btnLoad    = uibutton(fig, 'Text','Učitaj slike', 'Position',[20, 510, 120, 30], 'ButtonPushedFcn', @onLoad);
-    btnDefine  = uibutton(fig, 'Text','Definiši osu',  'Position',[20, 470, 120, 30], 'ButtonPushedFcn', @onDefineAxis);
-    btnProcess = uibutton(fig, 'Text','Pokreni analizu','Position',[20, 430, 120, 30], 'ButtonPushedFcn', @onProcess);
+    btnLoad    = uibutton(fig, 'Text','Učitaj slike',  'Position',[20, 545, 120, 30], 'ButtonPushedFcn', @onLoadDialog);
+    btnDefine  = uibutton(fig, 'Text','Definiši osu',   'Position',[20, 505, 120, 30], 'ButtonPushedFcn', @onDefineAxis);
+    btnProcess = uibutton(fig, 'Text','Pokreni analizu','Position',[20, 465, 120, 30], 'ButtonPushedFcn', @onProcess);
 
-    uilabel(fig,'Text','Slike','Position',[20,400,120,20]);
-    lstImages  = uilistbox(fig, 'Position',[20, 210, 120, 190], 'ValueChangedFcn', @onSelectImage);
+    uilabel(fig,'Text','Slike','Position',[20,435,120,20]);
+    lstImages  = uilistbox(fig, 'Position',[20, 235, 120, 200], 'ValueChangedFcn', @onSelectImage);
 
-    ax         = uiaxes(fig, 'Position',[170, 90, 620, 430]);
-    title(ax,'Slika');
-    axis(ax,'image'); axis(ax,'ij');
+    % Filter tasteri
+    tglDCM   = uibutton(fig,'state','Text','.dcm',     'Position',[20, 200, 55, 28], 'ValueChangedFcn', @onFilterChange);
+    tglRAST  = uibutton(fig,'state','Text','.png/jpg', 'Position',[85, 200, 55, 28], 'ValueChangedFcn', @onFilterChange);
 
-    tblResults = uitable(fig, 'Position',[170, 20, 620, 60], ...
+    ax         = uiaxes(fig, 'Position',[170, 110, 650, 470]); title(ax,'Slika'); axis(ax,'image'); axis(ax,'ij');
+    tblResults = uitable(fig, 'Position',[170, 20, 650, 70], ...
         'ColumnName', {'Fajl','Nepoklapanja','Pomeraj','Odnos povrsina'}, ...
         'ColumnEditable', [false false false false], 'Data', {});
 
     % ---------- STATE ----------
     S = struct();
     S.handles = struct('fig',fig,'btnLoad',btnLoad,'btnDefine',btnDefine,'btnProcess',btnProcess, ...
-                       'lst',lstImages,'ax',ax,'tbl',tblResults);
+                       'lst',lstImages,'ax',ax,'tbl',tblResults,'tglDCM',tglDCM,'tglRAST',tglRAST);
 
-    % Dinamički podaci
-    S.images       = {};      % {H x W double}
-    S.imgNames     = {};      % {1 x N} imena fajlova
-    S.currentIndex = [];      % trenutni indeks
-    S.axisParams   = {};      % {1 x N} svaka ćelija [slope, intercept] ili []
-    S.results      = {};      % {1 x N} rezultati (struct sa poljima)
-    fig.UserData   = S;       % upiši state
+    % File-state
+    S.files        = [];   % struct array: .name .folder .ext .path
+    S.filteredIdx  = [];
+    S.images       = containers.Map('KeyType','double','ValueType','any'); % cache
+    S.axisParams   = containers.Map('KeyType','double','ValueType','any');
+    S.results      = containers.Map('KeyType','double','ValueType','any');
+    S.currentIndex = [];
+
+    fig.UserData = S;
+
+    % Na startu: popuni listu iz data/original_images
+    try
+        populateFromDefaultDir(fig);
+    catch ME
+        uialert(fig, sprintf('Init greška:\n%s', ME.message), 'Greška');
+    end
 
     % =====================================================================
-    % Callbacks
+    % Helperi i callbacks
     % =====================================================================
 
-    function onLoad(src,~)
+    function populateFromDefaultDir(figHandle)
+        S = figHandle.UserData;
+        dirs = getDefaultDirs();                                      % ROBUSTNO
+        srcFolder = fullfile(dirs.data, 'original_images');
+        if ~exist(srcFolder,'dir')
+            % fallback: pokušaj relativno u odnosu na main_gui
+            srcFolder = fullfile(fileparts(srcDir), 'data', 'original_images');
+        end
+        assert(exist(srcFolder,'dir')==7, sprintf('Ne postoji folder: %s', srcFolder));
+
+        pats = {'*.dcm','*.DCM','*.png','*.PNG','*.jpg','*.JPG','*.jpeg','*.JPEG','*.bmp','*.BMP','*.tif','*.TIF','*.tiff','*.TIFF'};
+        files = [];
+        for i = 1:numel(pats)
+            files = [files; dir(fullfile(srcFolder, pats{i}))]; %#ok<AGROW>
+        end
+        % Ukloni duplikate (isti fajl kroz različite ekstenzije)
+        if ~isempty(files)
+            % puni path i ext
+            for k=1:numel(files)
+                [~,~,e]   = fileparts(files(k).name);
+                files(k).ext  = lower(e);
+                files(k).path = fullfile(files(k).folder, files(k).name);
+            end
+            % uniq po fullpath
+            [~, ia] = unique({files.path}, 'stable');
+            files = files(ia);
+            [~,ord] = sort({files.name});
+            files = files(ord);
+        end
+
+        S.files        = files;
+        S.images       = containers.Map('KeyType','double','ValueType','any'); % reset cache
+        S.axisParams   = containers.Map('KeyType','double','ValueType','any');
+        S.results      = containers.Map('KeyType','double','ValueType','any');
+        S.currentIndex = [];
+
+        % reset filtera -> prikaži sve
+        S.handles.tglDCM.Value  = false;
+        S.handles.tglRAST.Value = false;
+        figHandle.UserData = S;
+        applyFilterAndRefreshList();   % puni listu i prikazuje prvu sliku
+    end
+
+    function onLoadDialog(src,~)
         S = src.Parent.UserData;
         try
-            [images, names] = loadImages();
-            if isempty(images)
-                return;
+            [imgs, names] = loadImages();            % koristi dijalog
+            if isempty(imgs), return; end
+
+            % Dodaj izabrane (bez duplikata)
+            existing = string(arrayfun(@(r) r.path, S.files, 'UniformOutput', false));
+            for i = 1:numel(names)
+                p = string(names{i}); if ~isfile(p), continue; end
+                if any(existing == p), continue; end
+                [folder, base, ext] = fileparts(p);
+                rec = struct('name',[base ext],'folder',folder,'date','','bytes',[],'isdir',false,'datenum',[], ...
+                             'ext',lower(ext),'path',char(p));
+                S.files = [S.files; rec]; %#ok<AGROW>
             end
-
-            N = numel(images);
-            S.images       = images;
-            S.imgNames     = names;
-            S.currentIndex = 1;
-            S.axisParams   = cell(1,N);
-            S.results      = cell(1,N);
-
-            % UI lista i prikaz prve slike
-            S.handles.lst.Items = names;
-            S.handles.lst.Value = names{1};
-            showCurrent(S);
-
             src.Parent.UserData = S;
-
+            applyFilterAndRefreshList();
         catch ME
             uialert(S.handles.fig, ME.message, 'Greška pri učitavanju');
         end
     end
 
-    function onSelectImage(src,~)
-        S = src.Parent.UserData;
-        if isempty(S.imgNames), return; end
-        idx = find(strcmp(S.handles.lst.Value, S.imgNames), 1, 'first');
-        if isempty(idx), return; end
-        S.currentIndex = idx;
-        showCurrent(S);
-        src.Parent.UserData = S;
+    function onFilterChange(~,~)
+        applyFilterAndRefreshList();
     end
 
-    function showCurrent(S)
-        idx = S.currentIndex;
-        I = S.images{idx};
-        imshow(I, [], 'Parent', S.handles.ax);
-        if isempty(S.axisParams{idx})
-            ttl = sprintf('Slika: %s', S.imgNames{idx});
+    function applyFilterAndRefreshList()
+        S = fig.UserData;
+        if isempty(S.files)
+            S.filteredIdx = [];
+            S.handles.lst.Items = {};
+            fig.UserData = S;
+            return;
+        end
+
+        showDCM  = S.handles.tglDCM.Value;
+        showRAST = S.handles.tglRAST.Value;
+
+        idx = 1:numel(S.files);
+        if xor(showDCM, showRAST)
+            if showDCM
+                mask = ismember({S.files.ext}, {'.dcm'});
+            else
+                mask = ismember({S.files.ext}, {'.png','.jpg','.jpeg','.bmp','.tif','.tiff'});
+            end
+            idx = idx(mask);
+        end
+
+        S.filteredIdx = idx;
+        items = arrayfun(@(k) S.files(k).name, idx, 'UniformOutput', false);
+        if isempty(items), items = {'<nema fajlova>'}; end
+        S.handles.lst.Items = items;
+
+        if ~isempty(idx)
+            S.handles.lst.Value = items{1};
+            S.currentIndex = idx(1);
+            fig.UserData = S;  % upiši pre prikaza
+            showCurrent();
         else
-            ttl = sprintf('Slika: %s (osa definisana)', S.imgNames{idx});
+            S.currentIndex = [];
+            fig.UserData = S;
+            cla(S.handles.ax); title(S.handles.ax,'Slika');
+            S.handles.tbl.Data = {};
+        end
+    end
+
+    function onSelectImage(src,~)
+        S = src.Parent.UserData;
+        if isempty(S.filteredIdx) || isempty(S.files), return; end
+        items = S.handles.lst.Items;
+        pos   = find(strcmp(items, S.handles.lst.Value), 1, 'first');
+        if isempty(pos), return; end
+        S.currentIndex = S.filteredIdx(pos);
+        src.Parent.UserData = S;
+        showCurrent();
+    end
+
+    function I = getImageAt(idx)
+        S = fig.UserData;
+        if isKey(S.images, idx)
+            I = S.images(idx); return;
+        end
+        fpath = S.files(idx).path;
+        I = readImageAny(fpath);
+        S.images(idx) = I;
+        fig.UserData  = S;
+    end
+
+    function showCurrent()
+        S = fig.UserData;
+        if isempty(S.currentIndex), return; end
+        I = getImageAt(S.currentIndex);
+        imshow(I, [], 'Parent', S.handles.ax);
+
+        if isKey(S.axisParams, S.currentIndex)
+            p = S.axisParams(S.currentIndex);
+            slope = p(1); intercept = p(2);
+            xvals = linspace(1, size(I,2), 100);
+            yvals = slope * xvals + intercept;
+            hold(S.handles.ax,'on'); plot(S.handles.ax, xvals, yvals, 'r-', 'LineWidth', 2); hold(S.handles.ax,'off');
+            ttl = sprintf('Slika: %s (osa definisana)', S.files(S.currentIndex).name);
+        else
+            ttl = sprintf('Slika: %s', S.files(S.currentIndex).name);
         end
         title(S.handles.ax, ttl);
 
-        % Ako je osa već definisana za ovu sliku – nacrtaj je
-        params = S.axisParams{idx};
-        if ~isempty(params)
-            slope = params(1); intercept = params(2);
-            xvals = linspace(1, size(I,2), 100);
-            yvals = slope * xvals + intercept;
-            hold(S.handles.ax, 'on');
-            plot(S.handles.ax, xvals, yvals, 'r-', 'LineWidth', 2);
-            hold(S.handles.ax, 'off');
-        end
-
-        % Ako postoje rezultati – prikaži u tabeli
-        if ~isempty(S.results{idx})
-            r = S.results{idx};
-            S.handles.tbl.Data = {S.imgNames{idx}, r.numMismatch, r.shift, r.areaRatio};
+        if isKey(S.results, S.currentIndex)
+            r = S.results(S.currentIndex);
+            S.handles.tbl.Data = {S.files(S.currentIndex).name, r.numMismatch, r.shift, r.areaRatio};
         else
-            S.handles.tbl.Data = {S.imgNames{idx}, [], [], []};
+            S.handles.tbl.Data = {S.files(S.currentIndex).name, [], [], []};
         end
     end
 
@@ -126,16 +219,11 @@ function main_gui
             if isempty(S.currentIndex)
                 uialert(S.handles.fig,'Nije izabrana slika.','Info'); return;
             end
-            I = S.images{S.currentIndex};
-
-            % Interaktivno biranje, vraća slope/intercept
-            [slope, intercept] = defineAxis(I, S.handles.ax);
-            S.axisParams{S.currentIndex} = [slope, intercept];
-
-            % Osvježi prikaz
-            showCurrent(S);
+            I = getImageAt(S.currentIndex);
+            [slope, intercept] = defineAxis(I, S.handles.ax, S.handles.fig);  % DESNI klik završava
+            S.axisParams(S.currentIndex) = [slope, intercept];
             src.Parent.UserData = S;
-
+            showCurrent();
         catch ME
             uialert(S.handles.fig, ME.message, 'Greška pri definisanju ose');
         end
@@ -144,45 +232,31 @@ function main_gui
     function onProcess(src,~)
         S = src.Parent.UserData;
         try
-            if isempty(S.currentIndex)
-                uialert(S.handles.fig,'Nije izabrana slika.','Info'); return;
-            end
-            params = S.axisParams{S.currentIndex};
-            if isempty(params)
-                uialert(S.handles.fig,'Osa nije definisana za ovu sliku.','Greška'); return;
-            end
+            if isempty(S.currentIndex), uialert(S.handles.fig,'Nije izabrana slika.','Info'); return; end
+            if ~isKey(S.axisParams, S.currentIndex), uialert(S.handles.fig,'Osa nije definisana.','Greška'); return; end
 
-            I = S.images{S.currentIndex};
-            slope = params(1); intercept = params(2);
+            I = getImageAt(S.currentIndex);
+            p = S.axisParams(S.currentIndex); slope = p(1); intercept = p(2);
 
-            % 1) refleksija preko definisane ose
             Iref = reflectImageOverLine(I, slope, intercept);
-
-            % 2) poređenje
             [numMismatch, shift, areaRatio, mismatchMask] = compareSymmetry(I, Iref);
+            matchMask = ~mismatchMask & (I > 0.05 | Iref > 0.05);
 
-            % 3) upiši rezultate u state i tabelu
             res = struct('numMismatch',numMismatch,'shift',shift,'areaRatio',areaRatio);
-            S.results{S.currentIndex} = res;
-            S.handles.tbl.Data = {S.imgNames{S.currentIndex}, numMismatch, shift, areaRatio};
+            S.results(S.currentIndex) = res;
+            S.handles.tbl.Data = {S.files(S.currentIndex).name, numMismatch, shift, areaRatio};
 
-            % 4) prikaži overlay
-            showResults(I, mismatchMask, res, S.handles.ax, S.handles.tbl);
+            showResults(I, mismatchMask, res, S.handles.ax, S.handles.tbl, matchMask);
 
-            % 5) Sačuvaj fajlove (CSV/MAT/PNG) u project_root/results
             dirs = getDefaultDirs();
-            baseName = S.imgNames{S.currentIndex};
+            baseName = S.files(S.currentIndex).name;
             saveResultsCSV(dirs.results, baseName, res);
             saveResultsMAT(dirs.results, baseName, res, struct('slope',slope,'intercept',intercept));
-            saveMismatchOverlayPNG(dirs.figures, baseName, I, mismatchMask);
-            % saveCurrentAxesPNG(dirs.figures, baseName, S.handles.ax); % opcionalno
+            saveMismatchOverlayPNG(dirs.results, baseName, I, mismatchMask);
 
-            % Ažuriraj state
             src.Parent.UserData = S;
-
         catch ME
             uialert(S.handles.fig, ME.message, 'Greška pri analizi');
         end
     end
-
 end
