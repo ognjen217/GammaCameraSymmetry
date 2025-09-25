@@ -1,78 +1,96 @@
 function [slope, intercept] = defineAxis(I, ax, fig)
-% DEFINEAXIS – Interaktivno: levi klik dodaje tačke, DESNI klik završava.
-% Radi na uifigure. Vraća pravu y = slope*x + intercept dobijenu fitom.
+% DEFINEAXIS – Levi klik dodaje tačke; DESNI klik završava crtanje.
+% Robusno hvata klikove i na UIAxes i na samoj slici (imshow).
 
-    if nargin < 3
-        % fallback ako neko pozove starim potpisom
+    if nargin < 3 || isempty(fig)
         fig = ancestor(ax,'figure');
     end
 
-    imshow(I, [], 'Parent', ax);
-    title(ax, 'Levi klik: dodaj tačku. Desni klik: završetak i fit linije.');
+    % Prikaz slike i gašenje default interakcija koje gutaju klikove
+    imh = imshow(I, [], 'Parent', ax);
+    title(ax, 'Levi klik: tačka   |   Desni klik: kraj i fit linije');
+    try, disableDefaultInteractivity(ax); end     % uifigure/uiaxes
+    try, ax.Toolbar = []; end                     % ukloni toolbar ako postoji
 
-    ptsX = []; ptsY = [];
-    hPts = []; hLine = [];
+    % Osiguraj da klikovi dopiru do handlera i preko slike
+    set(ax, 'HitTest','on', 'PickableParts','all', 'ButtonDownFcn', @onClick);
+    set(imh,'HitTest','on', 'PickableParts','all', 'ButtonDownFcn', @onClick);
+
+    % Sakupljanje tačaka i skiciranje polilinije
+    ptsX = [];  ptsY = [];
+    hold(ax,'on');
+    hPts  = plot(ax, nan, nan, 'yo', 'MarkerFaceColor','y', 'MarkerSize',5, 'PickableParts','none');
+    hSkic = plot(ax, nan, nan, 'y-', 'LineWidth',1, 'PickableParts','none');
+    hold(ax,'off');
+
     doneFlag = false;
+    uiwait(fig);                                  % čekaj desni klik (uiresume ispod)
 
-    % Sačuvaj prethodni handler i postavi naš
-    oldFcn = fig.WindowButtonDownFcn;
-    fig.WindowButtonDownFcn = @onMouseDown;
-
-    % Čekaj korisnika
-    uiwait(fig);
-
-    % Vrati prethodni handler
-    try, fig.WindowButtonDownFcn = oldFcn; catch, end
+    % Očisti handlere (da ne ostanu zakačeni)
+    if isvalid(ax), set(ax, 'ButtonDownFcn',[]); end
+    if isgraphics(imh), set(imh,'ButtonDownFcn',[]); end
 
     if numel(ptsX) < 2
         error('Potrebno je označiti najmanje 2 tačke.');
     end
 
+    % Fit prave y = m x + b
     p = polyfit(ptsX, ptsY, 1);
     slope = p(1); intercept = p(2);
 
-    % iscrtaj krajnju pravu
+    % Iscrtaj finalnu pravu
     xvals = linspace(1, size(I,2), 200);
     yvals = slope * xvals + intercept;
     hold(ax, 'on');
-    plot(ax, xvals, yvals, 'r-', 'LineWidth', 2);
+    plot(ax, xvals, yvals, 'r-', 'LineWidth', 2, 'PickableParts','none');
     hold(ax, 'off');
 
-    % ------- ugnježdena funkcija: klik handler -------
-    function onMouseDown(src, event)
+    %================= UGNJEŽDENE FUNKCIJE =================%
+
+    function onClick(~, ev)
+        % Izračunaj koordinate klika u koordinatama slike
         cp = ax.CurrentPoint;
-        x = cp(1,1); y = cp(1,2);
-        xlim_ = xlim(ax); ylim_ = ylim(ax);
-        inside = x>=xlim_(1) && x<=xlim_(2) && y>=ylim_(1) && y<=ylim_(2);
-        if ~inside
-            return;
-        end
+        x  = cp(1,1);  y = cp(1,2);
+        xl = xlim(ax); yl = ylim(ax);
+        inside = x>=xl(1) && x<=xl(2) && y>=yl(1) && y<=yl(2);
+        if ~inside, return; end
 
-        switch event.Button
-            case 1  % levi klik -> dodaj tačku
-                ptsX(end+1) = x; %#ok<AGROW>
-                ptsY(end+1) = y; %#ok<AGROW>
-                hold(ax,'on');
-                if isempty(hPts) || ~isvalid(hPts)
-                    hPts = plot(ax, ptsX, ptsY, 'yo', 'MarkerFaceColor','y', 'MarkerSize',5);
-                else
-                    set(hPts, 'XData', ptsX, 'YData', ptsY);
-                end
-                if numel(ptsX) >= 2
-                    if isempty(hLine) || ~isvalid(hLine)
-                        hLine = plot(ax, ptsX, ptsY, 'y-', 'LineWidth', 1);
-                    else
-                        set(hLine, 'XData', ptsX, 'YData', ptsY);
-                    end
-                end
-                hold(ax,'off');
+        % Odredi dugme (robustan fallback)
+        btn = detectButton(ev, fig);
 
-            case 3  % desni klik -> završetak
-                doneFlag = true;
+        if btn == 1
+            % LEVI klik -> dodaj tačku i osveži skicu
+            ptsX(end+1) = x; %#ok<AGROW>
+            ptsY(end+1) = y; %#ok<AGROW>
+            set(hPts,  'XData', ptsX, 'YData', ptsY);
+            if numel(ptsX) >= 2
+                set(hSkic, 'XData', ptsX, 'YData', ptsY);
+            end
+        elseif btn == 3
+            % DESNI klik -> završetak
+            doneFlag = true;
+            uiresume(fig);
         end
+    end
+end
 
-        if doneFlag
-            uiresume(src);
+%------------------ POMOĆNA FUNKCIJA ------------------%
+function b = detectButton(ev, fig)
+% Pokušaj da pročitaš taster iz eventa (UIAxes/uifigure), sa fallback-om.
+    b = 1;
+    try
+        % uifigure: matlab.ui.eventdata.ButtonDownData / WindowMousePressData
+        if isobject(ev) && isprop(ev,'Button')
+            b = ev.Button; return;
         end
+        % klasična figura: SelectionType
+        switch get(fig,'SelectionType')
+            case 'normal', b = 1;
+            case 'alt',    b = 3;
+            case 'extend', b = 2;
+            otherwise,     b = 1;
+        end
+    catch
+        % ništa – ostavi default 1
     end
 end
