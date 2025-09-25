@@ -1,9 +1,9 @@
 # GammaCameraSymmetry
+Ovaj projekat je realizovan u okviru predmeta **Algoritmi obrade slike u automatici** i ima za cilj analizu simetrije snimaka gamma kamera korišćenjem algoritama obrade slike u MATLAB okruženju.
 
 Autor: Ognjen Perić  
 Broj indeksa: RA118/2021
 
-Ovaj projekat je realizovan u okviru predmeta **Algoritmi obrade slike u automatici** i ima za cilj analizu simetrije snimaka gamma kamera korišćenjem algoritama obrade slike u MATLAB okruženju.
 
 ## Opis projekta
 
