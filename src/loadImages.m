@@ -1,5 +1,4 @@
 function [images, names] = loadImages()
-% Dijalog za ručno dodavanje; vraća pune putanje u "names".
     [files, path] = uigetfile( ...
         {'*.dcm;*.png;*.jpg;*.jpeg;*.bmp;*.tif;*.tiff', 'Sve podržane (*.dcm, *.png, *.jpg, *.bmp, *.tif)'; ...
          '*.dcm', 'DICOM (*.dcm)'; ...
@@ -13,6 +12,6 @@ function [images, names] = loadImages()
     for i = 1:N
         fpath     = fullfile(path, files{i});
         images{i} = readImageAny(fpath);
-        names{i}  = fpath; % VAŽNO: puna putanja
+        names{i}  = fpath; 
     end
 end

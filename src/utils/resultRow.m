@@ -1,5 +1,4 @@
 function row = resultRow(baseName, res)
-%RESULTROW Table jedna vrsta za CSV: Fajl, Nepoklapanja, Pomeraj, OdnosPovrsina, Vreme
     if ~isfield(res,'numMismatch'), res.numMismatch = []; end
     if ~isfield(res,'shift'),       res.shift       = []; end
     if ~isfield(res,'areaRatio'),   res.areaRatio   = []; end

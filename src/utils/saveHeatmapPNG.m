@@ -1,5 +1,4 @@
 function saveHeatMapPNG(outDir, baseName, diffAbs)
-% Boji |I-Iref| heatmap-om i snima u results/
     ensureDir(outDir);
     A = mat2gray(diffAbs);
     cmap = parula(256);

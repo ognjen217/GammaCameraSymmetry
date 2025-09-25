@@ -1,12 +1,11 @@
 function dirs = getDefaultDirs()
-%GETDEFAULTDIRS Standardne putanje projekta (kreira results/ ako ne postoji).
+
 
     here       = mfilename('fullpath');
     utilsDir   = fileparts(here);          % .../src/utils
     srcDir     = fileparts(utilsDir);      % .../src
     projectRoot= fileparts(srcDir);        % .../project_root
 
-    % fallback ako je struktura atipična
     if ~exist(fullfile(projectRoot,'data'),'dir') && exist(fullfile(srcDir,'data'),'dir')
         projectRoot = srcDir;
     end

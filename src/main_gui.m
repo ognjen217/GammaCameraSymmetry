@@ -1,5 +1,4 @@
 function main_gui
-% MAIN_GUI – UI za analizu simetrije slika (napredne metrike + vizuelizacije)
 
     here   = mfilename('fullpath');
     srcDir = fileparts(here);
@@ -23,7 +22,6 @@ function main_gui
         'ColumnName', {'Fajl','Nepoklapanja','Pomeraj','Odnos povrsina'}, ...
         'ColumnEditable', [false false false false], 'Data', {});
 
-    % --- STATE ---
     S = struct();
     S.handles = struct('fig',fig,'btnLoad',btnLoad,'btnDefine',btnDefine,'btnProcess',btnProcess, ...
                        'lst',lstImages,'ax',ax,'tbl',tblResults,'tglDCM',tglDCM,'tglRAST',tglRAST);
@@ -31,14 +29,13 @@ function main_gui
     S.filteredIdx  = [];
     S.images       = containers.Map('KeyType','double','ValueType','any');
     S.axisParams   = containers.Map('KeyType','double','ValueType','any');
-    S.results      = containers.Map('KeyType','double','ValueType','any');       % core tri vrednosti
-    S.metrics      = containers.Map('KeyType','double','ValueType','any');       % napredne metrike
+    S.results      = containers.Map('KeyType','double','ValueType','any');       
+    S.metrics      = containers.Map('KeyType','double','ValueType','any');
     S.currentIndex = [];
     fig.UserData = S;
 
     populateFromDefaultDir(fig);
 
-    % ===== helperi / callbacks (isti kao ranije, skraćeno) =====
     function populateFromDefaultDir(figHandle)
         S = figHandle.UserData;
         dirs = getDefaultDirs();
@@ -161,11 +158,8 @@ function main_gui
 
         Iref = reflectImageOverLine(I, slope, intercept);
 
-        % NOVO: compareSymmetry vraća metrics.match_mask (verified)
         [numMismatch, shift, areaRatio, mismatchMask, metrics] = compareSymmetry(I, Iref);
 
-        % Ako imamo verified match masku, koristimo nju za zeleno;
-        % ako nemamo, koristimo fallback kao ranije.
         if isfield(metrics,'match_mask') && ~isempty(metrics.match_mask)
             matchMask = metrics.match_mask;
         else

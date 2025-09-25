@@ -1,5 +1,4 @@
 function RGB = simpleOverlay(Igray, mask)
-%SIMPLEOVERLAY Siva pozadina + crvena maska (50% blend).
     Igray = mat2gray(Igray);
     if ~islogical(mask), mask = logical(mask); end
     R = Igray; G = Igray; B = Igray;

@@ -1,6 +1,4 @@
 function showResults(I, mismatchMask, ~, ax, ~, matchMask, metrics)
-% Prikaz: zeleno = verified match, crveno = mismatch.
-% Ako metrics.match_mask postoji, on ima prioritet nad prosleđenim matchMask.
 
     if nargin < 6 || isempty(matchMask), matchMask = []; end
     if nargin >= 7 && isstruct(metrics) && isfield(metrics,'match_mask') && ~isempty(metrics.match_mask)
@@ -10,7 +8,6 @@ function showResults(I, mismatchMask, ~, ax, ~, matchMask, metrics)
     imshow(I, [], 'Parent', ax);
     hold(ax, 'on');
 
-    % Zeleno (verified match)
     if ~isempty(matchMask)
         h1 = imshow(matchMask, 'Parent', ax);
         green = [40,141,70]/255;                  % #288d46
@@ -21,13 +18,11 @@ function showResults(I, mismatchMask, ~, ax, ~, matchMask, metrics)
                                green(3)*ones(size(matchMask))));
     end
 
-    % Crveno (mismatch)
     h2 = imshow(mismatchMask, 'Parent', ax);
     A2 = zeros(size(mismatchMask)); A2(mismatchMask) = 0.35;
     set(h2,'AlphaData',A2);
     set(h2,'CData',cat(3, ones(size(mismatchMask)), zeros(size(mismatchMask)), zeros(size(mismatchMask))));
 
-    % Info kutija
     if nargin >= 7 && isstruct(metrics)
         txt = composeInfo(metrics);
         if ~isempty(txt)

@@ -1,5 +1,4 @@
 function saveResultsMAT(outDir, baseName, res, extras)
-%SAVERESULTSMAT Snima pojedinačni MAT sa rezultatima i dodatnim parametrima.
     ensureDir(outDir);
     S = struct();
     S.file       = baseName;

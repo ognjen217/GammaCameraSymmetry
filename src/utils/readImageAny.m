@@ -1,5 +1,4 @@
 function I = readImageAny(fpath)
-%READIMAGEANY Učitava PNG/JPG/TIF i DICOM i vraća 2D grayscale (double 0..1)
 
     if ~isfile(fpath)
         error('Fajl ne postoji: %s', fpath);

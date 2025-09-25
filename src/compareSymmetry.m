@@ -1,50 +1,35 @@
 function [numMismatch, shift, areaRatio, mismatchMask, metrics] = compareSymmetry(I, Iref)
-% Robustna procena simetrije:
-%  - Lokalna ZNCC (patch-wise) + doslednost gradijenta + salijentnost
-%  - Mismatch = validna_zona & ~verified_match
-%  - Globalna statistička provera (nul-model sa "drmanim" osama)
-%  - Bogat paket metrika + verified match mask (metrics.match_mask)
-%
-% Ulazi:  I, Iref  -> double [0,1], iste dimenzije
 
     I    = im2double(I);
     Iref = im2double(Iref);
 
     [H, W] = size(I);
-    valid = (I > 0.03) | (Iref > 0.03);   % zona interesa (ne mrak)
+    valid = (I > 0.03) | (Iref > 0.03);   
 
-    % ---------- 1) LOKALNI KRITERIJUMI ----------
 
-    % 1a) ZNCC (patch-wise) za svaki piksel
-    win = 9;                             % širina kvadratnog prozora (neparan)
-    zncc = localZNCC(I, Iref, win);      % [-1,1]
-    zncc = max(-1, min(1, zncc));        % sigurnost
+    win = 9;                             
+    zncc = localZNCC(I, Iref, win);      
+    zncc = max(-1, min(1, zncc));        
 
-    % 1b) Doslednost gradijenta (pravac ivice treba da se slaže/ogleda)
     [Gx1, Gy1] = imgradientxy(I);
     [Gx2, Gy2] = imgradientxy(Iref);
 
     g1 = hypot(Gx1, Gy1);
     g2 = hypot(Gx2, Gy2);
 
-    cosang = (Gx1.*Gx2 + Gy1.*Gy2) ./ (g1.*g2 + eps);  % [-1,1]
-    cosabs = abs(cosang);                              % napomena: ogledanje može inverzno da okrene normalu
+    cosang = (Gx1.*Gx2 + Gy1.*Gy2) ./ (g1.*g2 + eps);  
+    cosabs = abs(cosang);                              
 
-    % 1c) Salijentnost (uvedi prag na jačinu gradijenta)
-    thr_g = prctile(g1(valid), 60);   % 60. percentil unutar valid zone
+    thr_g = prctile(g1(valid), 60);   
     sal = (g1 > thr_g) | (g2 > thr_g);
 
-    % 1d) Strogi lokalni match
-    Tzncc = 0.55;            % prag za ZNCC (možeš pooštriti na 0.6)
-    Tgrad = 0.60;            % prag za orijentacionu podudarnost
+    Tzncc = 0.55;            
+    Tgrad = 0.60;            
     match_local = valid & (zncc >= Tzncc) & (cosabs >= Tgrad) & sal;
 
-    % ---------- 2) MISMATCH po pikselu ----------
-    % Umesto praga na |I-Iref|, mismatch je prosto: valid & ~verified_match
     mismatchMask = valid & ~match_local;
     numMismatch  = nnz(mismatchMask);
 
-    % ---------- 3) "Shift" i "areaRatio" (kompatibilnost) ----------
     CC = bwconncomp(mismatchMask);
     stats = regionprops(CC, 'Centroid', 'Area');
     if numel(stats) >= 2
@@ -56,12 +41,9 @@ function [numMismatch, shift, areaRatio, mismatchMask, metrics] = compareSymmetr
         shift = NaN; areaRatio = NaN;
     end
 
-    % ---------- 4) DODATNE METRIKE (kao ranije) ----------
-    % SSIM i korelacija
     try, [ssim_val, ~] = ssim(I, Iref); catch, ssim_val = NaN; end
     try, corr_val = corr2(I, Iref);     catch, corr_val = NaN; end
 
-    % Ivicne metrike
     try, E1 = edge(I, 'canny'); E2 = edge(Iref, 'canny');
     catch, E1 = edge(I, 'sobel'); E2 = edge(Iref, 'sobel');
     end
@@ -76,26 +58,23 @@ function [numMismatch, shift, areaRatio, mismatchMask, metrics] = compareSymmetr
     chamfer_mean    = (mean(dist1(E1)) + mean(dist2(E2))) / 2;
     chamfer_max     = max([max(dist1(E1)), max(dist2(E2))]);
 
-    % Udeo poklapanja (strogi, verifikovani)
+
     match_frac = nnz(match_local) / nnz(valid);
     mismatch_frac = 1 - match_frac;
 
-    % ---------- 5) NUL-MODEL (da ne "izmišljamo" simetriju) ----------
-    % Napravi 12 jitter refleksija (mala promena ugla i pomeraja),
-    % izračunaj isti strogi match i uzmi 95. percentil.
     null_fracs = permutationNullSymmetry(I, 12, win, Tzncc, Tgrad, thr_g);
     null95 = prctile(null_fracs, 95);
     significant = match_frac > null95;
 
     if ~significant
-        % Ako nije statistički iznad slučaja -> ne prikazuj match
+
         match_local = false(size(match_local));
-        mismatchMask = valid;             % praktično sve validno je "nepoklapanje"
+        mismatchMask = valid;            
         match_frac = 0;
         mismatch_frac = 1;
     end
 
-    % ---------- 6) Kompozitni skor (0..100) ----------
+
     w_match = 0.40; w_ssim = 0.25; w_edges = 0.20; w_corr = 0.15;
     ssim_n  = clamp01(ssim_val);
     corr_n  = clamp01((corr_val+1)/2);
@@ -104,7 +83,7 @@ function [numMismatch, shift, areaRatio, mismatchMask, metrics] = compareSymmetr
     score01 = w_match*match_n + w_ssim*ssim_n + w_edges*edges_n + w_corr*corr_n;
     symmetry_score = 100*score01*(1 - 0.2*mismatch_frac);
 
-    % ---------- 7) Izlazni paket ----------
+
     metrics = struct( ...
         'ssim', ssim_val, ...
         'corr_intensity', corr_val, ...
@@ -118,18 +97,16 @@ function [numMismatch, shift, areaRatio, mismatchMask, metrics] = compareSymmetr
         'symmetry_score', symmetry_score, ...
         'significant', significant, ...
         'null95_match_frac', null95, ...
-        'match_mask', match_local, ...    % <<< ZELENA maska (verifikovana)
+        'match_mask', match_local, ...   
         'zncc', zncc, ...
         'grad_consistency', cosabs ...
     );
 end
 
-% ================== LOKALNE POMOĆNE ================== %
+
 
 function Z = localZNCC(A, B, win)
-% ZNCC za svaki piksel u "validnoj" zoni: 
-%   Z = (E[AB] - E[A]E[B]) / (sqrt(VarA VarB) + eps)
-% implementirano preko box-filtera (konvolucije).
+
     if mod(win,2)==0, win = win+1; end
     k = ones(win) / (win*win);
     EA  = conv2(A, k, 'same');
@@ -146,24 +123,20 @@ function Z = localZNCC(A, B, win)
 end
 
 function null_fracs = permutationNullSymmetry(I, K, win, Tzncc, Tgrad, thr_g)
-% Globalni nul-model: reflektuj I preko nasumičnih linija (ugao +-15°, pomeraj +-5%),
-% pa izračunaj udeo piksela koji prođu strogi match. Brzo i dovoljno dobro.
     [H,W] = size(I);
-    % Linija referenca = dijagonala – nije bitno, jer se randomizuje
-    m0 = 0; b0 = H/2;   % početna aproks. (ionako ćemo jitrovati)
+    m0 = 0; b0 = H/2;   
 
     null_fracs = zeros(1,K);
     for k = 1:K
-        dtheta = deg2rad( -15 + 30*rand );       % +/-15°
-        dm     = tan(dtheta);                    % mala promena nagiba
-        db     = (rand-0.5) * 0.10 * max(H,W);   % +/-5% dijagonale (ukupno 10%)
+        dtheta = deg2rad( -15 + 30*rand );       
+        dm     = tan(dtheta);                    
+        db     = (rand-0.5) * 0.10 * max(H,W);  
 
         m = m0 + dm;
         b = b0 + db;
 
         Iref_k = reflectImageOverLine(I, m, b);
 
-        % Lokalni kriterijumi (isti kao gore)
         zncc = localZNCC(I, Iref_k, win);
         [Gx1, Gy1] = imgradientxy(I);
         [Gx2, Gy2] = imgradientxy(Iref_k);
