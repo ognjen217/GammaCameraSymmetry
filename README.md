@@ -20,7 +20,7 @@ Gamma kamere se koriste za medicinsku dijagnostiku, a simetrija snimka je važan
 ## Upotreba
 
 1. Pokrenite MATLAB i otvorite ovaj projekat.
-2. U glavnom skriptu (npr. `main.m` ili ekvivalent), podesite putanju do slike gamma kamere koju želite da analizirate.
+2. U glavnom skriptu (npr. `project_gamma_symmetry.m`), podesite putanju do slike gamma kamere koju želite da analizirate.
 3. Pokrenite skriptu – algoritam će obraditi sliku, prikazati rezultate analize i sačuvati izveštaj ako je podešeno.
 4. Vizuelizacija rezultata se automatski prikazuje u MATLAB figure prozoru.
 
@@ -45,26 +45,5 @@ Projekt koristi algoritme za detekciju simetrije kao što su:
 - Korelacija između leve i desne (ili gornje i donje) polovine slike
 - Proračun razlike piksela duž predložene ose simetrije
 - Automatska optimizacija položaja ose simetrije radi maksimalnog poklapanja
-
-## Primer pokretanja
-
-```matlab
-% Učitavanje slike
-img = imread('data/sample_gamma_image.png');
-
-% Analiza simetrije
-[axis, score] = analyze_symmetry(img);
-
-% Prikaz rezultata
-show_symmetry(img, axis);
-```
-
-## Reference
-
-Za više informacija o gamma kamerama i obradi slike:
-- [Wikipedia: Gamma Camera](https://en.wikipedia.org/wiki/Gamma_camera)
-- MATLAB dokumentacija: [Image Processing Toolbox](https://www.mathworks.com/products/image.html)
-
----
 
 **Napomena:** Projekat je edukativnog karaktera i namenjen je za demonstraciju algoritama obrade slike u medicinskim aplikacijama.
