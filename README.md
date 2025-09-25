@@ -5,7 +5,7 @@ Autor: Ognjen Perić
 Broj indeksa: RA118/2021
 
 ## Opis projekta
-
+`
 project_root/
 ├─ data/
 │ ├─ original_images/ # Ulazne slike (DICOM/PNG/JPG/…)
@@ -19,7 +19,7 @@ project_root/
 │ └─ utils_functions.m # Pomoćne funkcije
 ├─ results/ # Generisani rezultati i izveštaji
 └─ project_gamma_symmetry.m 
-
+`
 Gamma kamere se koriste za medicinsku dijagnostiku.
 Ovaj projekat implementira algoritme koji automatski analiziraju i kvantifikuju stepen simetrije u snimcima iz gamma kamera.
 
