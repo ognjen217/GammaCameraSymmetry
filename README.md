@@ -10,12 +10,79 @@ Broj indeksa: RA118/2021
 Gamma kamere se koriste za medicinsku dijagnostiku, a simetrija snimka je važan parametar za procenu kvaliteta slike i ispravnost uređaja. Ovaj projekat implementira algoritme koji automatski analiziraju i kvantifikuju stepen simetrije u snimcima iz gamma kamera.
 
 ### Glavne funkcionalnosti
+---
 
-- **Učitavanje medicinskih slika gamma kamera u podržanim formatima**
-- **Automatska detekcija simetrijskih osa** slike
-- **Kvantitativna analiza simetrije** (npr. korišćenjem korelacije, razlike piksela, itd.)
-- **Vizuelizacija rezultata** sa prikazom osa simetrije i grafičkim prikazom stepena simetrije
-- **Generisanje izveštaja** o analizi simetrije
+## Tok obrade — korak po korak
+
+### 1) Učitavanje i preprocessing (`loadImages.m`)
+- Učitava slike iz `data/original_images/` (DICOM ili standardne).
+- Konvertuje u grayscale i normalizuje na `[0,1]`.
+- Opcioni filteri: denoise, korekcija osvetljenja, CLAHE.
+
+**Izlaz:** `I` (slika), opciono maska `M` i meta-podaci.
+
+---
+
+### 2) Definisanje ose (`defineAxis.m`)
+- **Ručni režim:** korisnik bira osu u GUI-ju.
+- **Auto režim:** predlog ose izračunat PCA/momentima.  
+- Osa definisana tačkom + vektorom ili centrom + uglom.
+
+**Izlaz:** `L = {p0, v}` ili `({cx, cy}, θ)`.
+
+---
+
+### 3) Refleksija (`reflectImageOverLine.m`)
+- Pravi reflektovanu verziju slike `I_ref` preko ose `L`.
+- Afi na transformacija sa interpolacijom (bilinear/bicubic).
+
+**Izlaz:** `I_ref`.
+
+---
+
+### 4) Upoređivanje (`compareSymmetry.m`)
+- Pixel-wise razlike: MAE, MSE, RMSE, NAD.
+- Sličnost strukture: SSIM, NCC.
+- Heat-map razlika + procenat piksela iznad praga τ.
+- Skalarne ocene: `SymmetryScore`, `AsymmetryIndex`.
+
+**Izlaz:** struktura `metrics` + `diffMap`.
+
+---
+
+### 5) Vizualizacija i eksport (`showResults.m`)
+- Prikazuje original, refleksiju, overlay, osu simetrije.
+- Heat-map i grafikoni profila.
+- Snima u `results/`:
+  - Slike (PNG/JPG),
+  - `.csv` metrike,
+  - `.mat` (metrics, diffMap).
+
+---
+
+## Brzi start
+
+1. Stavi ulazne slike u `data/original_images/`.
+2. Pokreni GUI `project_gamma_symmetry.m`.
+
+Primer batch obrade:
+
+matlab
+inDir  = fullfile(pwd, 'data', 'original_images');
+outDir = fullfile(pwd, 'results');
+
+files = dir(fullfile(inDir, '*.*'));
+[imgs, metas] = loadImages(files);
+
+for k = 1:numel(imgs)
+    I = imgs{k};
+
+    axisParams = defineAxis(I, 'mode','auto', 'snapTo', 'vertical');
+    I_ref = reflectImageOverLine(I, axisParams, 'interp','bicubic');
+    metrics = compareSymmetry(I, I_ref, 'tau', 0.05, 'useSSIM', true);
+    showResults(I, I_ref, axisParams, metrics, outDir, metas{k});
+end
+
 
 ## Upotreba
 
