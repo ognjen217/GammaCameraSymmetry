@@ -53,7 +53,7 @@ function [numMismatch, shift, areaRatio, mismatchMask, metrics] = compareSymmetr
         c1 = stats(idxs(1)).Centroid; c2 = stats(idxs(2)).Centroid;
         shift = norm(c1 - c2);
         areaRatio = stats(idxs(1)).Area / max(1,stats(idxs(2)).Area);
-    elseif numel(stats) == 1
+    elseif isscalar(stats)
         shift = NaN; areaRatio = Inf;
     else
         shift = NaN; areaRatio = NaN;

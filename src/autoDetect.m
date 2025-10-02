@@ -11,8 +11,8 @@ function [slope, intercept, best] = autoDetect(I, varargin)
 %   'fig'           uifigure handle (modali progress/cancel)
 
     ip = inputParser;
-    ip.addParameter('thetaStep', 6, @(x)isnumeric(x)&&isscalar(x)&&x>0);
-    ip.addParameter('thetaRange', [0 359], @(x)isnumeric(x)&&numel(x)==2);
+    ip.addParameter('thetaStep', 12, @(x)isnumeric(x)&&isscalar(x)&&x>0);
+    ip.addParameter('thetaRange', [0 180], @(x)isnumeric(x)&&numel(x)==2);
     ip.addParameter('offsetStep', [], @(x)isnumeric(x)&&isscalar(x)&&x>0);
     ip.addParameter('thresholdPct', 60, @(x)isnumeric(x)&&isscalar(x));
     ip.addParameter('useScore', true, @(x)islogical(x)||ismember(x,[0 1]));
@@ -58,8 +58,8 @@ function [slope, intercept, best] = autoDetect(I, varargin)
 
     % ===================== FAZA 1: COARSE =====================
     % oko najboljeg: θ ±3° sa korakom 1°, offset ±5 px (u velikim px, prevodimo u small)
-    thetaFine = wrapTo360(best.theta_deg + (-3:1:+3));  % ±3° sa KORAKOM 1°
-    dOffBig   = -5:1:+5;                                 % ±5 px
+    thetaFine = wrapTo360(best.theta_deg + (-6:1:+6));  % ±3° sa KORAKOM 1°
+    dOffBig   = -15:1:+15;                                 % ±5 px
     totalCoarse = numel(thetas)*numel(offsets_s);
     dOffSmall = round(dOffBig * scale);
 
@@ -116,7 +116,7 @@ function [slope, intercept, best] = autoDetect(I, varargin)
 
     % ===================== FAZA 2: FINE =====================
     % oko najboljeg: θ ±3° sa korakom 1°, offset ±5 px (u velikim px, prevodimo u small)
-    thetaFine = wrapTo360(best.theta_deg + (-3:1:+3));  % ±3° sa KORAKOM 1°
+    thetaFine = wrapTo360(best.theta_deg + (-6:1:+6));  % ±3° sa KORAKOM 1°
     dOffBig   = -5:1:+5;                                 % ±5 px
 
     dOffSmall = round(dOffBig * scale);

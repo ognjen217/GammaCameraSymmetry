@@ -198,7 +198,7 @@ function main_gui
             otherwise
                 I = im2double(readImageAny(rec.path));
         end
-        if ndims(I)==3, I = rgb2gray(I); end
+        %if ndims(I)==3, I = rgb2gray(I); end
         S.images(idx) = I; fig.UserData = S;
     end
 
@@ -246,11 +246,18 @@ function main_gui
             if ~isKey(S.axisParams, S.currentIndex), uialert(S.handles.fig,'Osa nije definisana.','Greška'); return; end
     
             I = getImageAt(S.currentIndex);
+
+            % koristimo grayscale SAMO za računanje, ali ne i za prikaz
+            Iproc = I;
+            if size(Iproc,3)==3
+                Iproc = rgb2gray(Iproc);
+            end
+            
             p = S.axisParams(S.currentIndex); slope=p(1); intercept=p(2);
-            Iref = reflectImageOverLine(I, slope, intercept);
-    
-            [numMismatch, shift, areaRatio, mismatchMask, metrics] = compareSymmetry(I, Iref);
-    
+            Iref = reflectImageOverLine(Iproc, slope, intercept);
+            
+            [numMismatch, shift, areaRatio, mismatchMask, metrics] = compareSymmetry(Iproc, Iref);
+
             % ---------- NOVO: robustni procenti i odluka ----------
             % 1) foreground-only procenat (ignoriše pozadinu)
             fg = computeForegroundMask(I, Iref);
@@ -420,8 +427,22 @@ function main_gui
         if exist(fpath,'file')
             try
                 I = imread(fpath);
-                imshow(I, 'Parent', S.handles.ax);
-                axis(S.handles.ax,'ij'); axis(S.handles.ax,'image');
+                imshow(I, [], 'Parent', S.handles.ax);      % ← prikaz originalne slike (u boji ako jeste RGB)
+                axis(S.handles.ax,'ij'); axis(S.handles.ax,'image'); hold(S.handles.ax,'on');
+                
+                % (opciono) overlay nepoklapanja poluprovidno
+                if ~isempty(mismatchMask)
+                    rgbMask = cat(3, ones(size(mismatchMask)), zeros(size(mismatchMask)), zeros(size(mismatchMask)));
+                    hOv = imshow(rgbMask, 'Parent', S.handles.ax);
+                    set(hOv,'AlphaData', 0.30 * double(mismatchMask));
+                end
+                
+                [xseg,yseg] = clipLineToImage(slope,intercept,size(Iproc)); % size po grayscale (isti H×W)
+                if ~isempty(xseg)
+                    plot(S.handles.ax, xseg, yseg, 'r-', 'LineWidth', 2, 'PickableParts','none');
+                end
+                hold(S.handles.ax,'off');
+
                 title(S.handles.ax, sprintf('REZULTAT: %s', src.Value), 'Interpreter','none');
             catch ME
                 uialert(S.handles.fig, ME.message, 'Greška pri učitavanju rezultata');

@@ -1,13 +1,7 @@
 function project_gamma_symmetry(mode, varargin)
-% PROJECT_GAMMA_SYMMETRY – pokretanje GUI ili batch analize.
-%   project_gamma_symmetry             % GUI
-%   project_gamma_symmetry('gui')      % GUI
-%   project_gamma_symmetry('batch')    % batch do 10 slika
-%   project_gamma_symmetry('batch','N',20)
 
     if nargin<1 || isempty(mode), mode = 'gui'; end
 
-    % lociraj project_root i dodaj /src i /src/utils na path
     thisFile    = mfilename('fullpath');
     projectRoot = fileparts(thisFile);
     addpath(genpath(fullfile(projectRoot,'src')));
@@ -23,7 +17,7 @@ function project_gamma_symmetry(mode, varargin)
             N = p.Results.N;
 
             dirs = getDefaultDirs();
-            % uzmi prvih N slika iz original_images
+
             imgs = dir(fullfile(dirs.data, 'original_images', '*'));
             imgs = imgs(~[imgs.isdir]);
             imgs = imgs(1:min(N,numel(imgs)));
