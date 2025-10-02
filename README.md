@@ -16,6 +16,7 @@ project_root/
 │ ├─ reflectImageOverLine.m     # Refleksija slike oko ose
 │ ├─ compareSymmetry.m          # Proračun metrika simetrije
 │ ├─ showResults.m              # Vizuelizacija i eksport
+| ├─ autoDetect.m               # Automatska pretraga fotografije na osu simetrije
 │ └─ utils_functions.m          # Pomoćne funkcije
 ├─ results/                     # Generisani rezultati i izveštaji
 └─ project_gamma_symmetry.m     # fajl koji je potrebno pokrenuti u komandnoj liniji
