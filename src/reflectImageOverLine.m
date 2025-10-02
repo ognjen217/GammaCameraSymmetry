@@ -1,6 +1,4 @@
 function Iref = reflectImageOverLine(I, slope, intercept)
-
-
     I = im2double(I);
     if any(isnan(I(:))), I(isnan(I)) = 0; end
 
