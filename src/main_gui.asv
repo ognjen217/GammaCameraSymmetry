@@ -172,7 +172,6 @@ function main_gui
     end
 
     function I = getImageAt(idx)
-        % ROBUSNO učitavanje (DICOM potpuno podržan)
         S = fig.UserData;
         if isKey(S.images, idx)
             I = S.images(idx); return;
@@ -208,7 +207,6 @@ function main_gui
         imshow(I, [], 'Parent', S.handles.ax);
         axis(S.handles.ax,'ij'); axis(S.handles.ax,'image'); hold(S.handles.ax,'on');
 
-        % isečena osa (ako postoji)
         if isKey(S.axisParams, S.currentIndex)
             p = S.axisParams(S.currentIndex);
             [xseg,yseg] = clipLineToImage(p(1), p(2), size(I));
@@ -222,7 +220,6 @@ function main_gui
         hold(S.handles.ax,'off');
         title(S.handles.ax, ttl, 'Interpreter','none');
 
-        % tabela
         if isKey(S.results, S.currentIndex)
             r = S.results(S.currentIndex);
             symTxt = tern(r.isSymmetric,'DA','NE');
@@ -251,8 +248,7 @@ function main_gui
     
             [numMismatch, shift, areaRatio, mismatchMask, metrics] = compareSymmetry(I, Iref);
     
-            % ---------- NOVO: robustni procenti i odluka ----------
-            % 1) foreground-only procenat (ignoriše pozadinu)
+           % 1) foreground-only procenat (ignoriše pozadinu)
             fg = computeForegroundMask(I, Iref);
             numFG           = max(1, nnz(fg));
             numMismatchFG   = nnz(mismatchMask & fg);

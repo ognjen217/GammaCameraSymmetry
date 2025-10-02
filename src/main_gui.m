@@ -172,7 +172,6 @@ function main_gui
     end
 
     function I = getImageAt(idx)
-        % ROBUSNO učitavanje (DICOM potpuno podržan)
         S = fig.UserData;
         if isKey(S.images, idx)
             I = S.images(idx); return;
@@ -208,7 +207,6 @@ function main_gui
         imshow(I, [], 'Parent', S.handles.ax);
         axis(S.handles.ax,'ij'); axis(S.handles.ax,'image'); hold(S.handles.ax,'on');
 
-        % isečena osa (ako postoji)
         if isKey(S.axisParams, S.currentIndex)
             p = S.axisParams(S.currentIndex);
             [xseg,yseg] = clipLineToImage(p(1), p(2), size(I));
@@ -222,7 +220,6 @@ function main_gui
         hold(S.handles.ax,'off');
         title(S.handles.ax, ttl, 'Interpreter','none');
 
-        % tabela
         if isKey(S.results, S.currentIndex)
             r = S.results(S.currentIndex);
             symTxt = tern(r.isSymmetric,'DA','NE');
@@ -251,31 +248,25 @@ function main_gui
     
             [numMismatch, shift, areaRatio, mismatchMask, metrics] = compareSymmetry(I, Iref);
     
-            % ---------- NOVO: robustni procenti i odluka ----------
-            % 1) foreground-only procenat (ignoriše pozadinu)
             fg = computeForegroundMask(I, Iref);
             numFG           = max(1, nnz(fg));
             numMismatchFG   = nnz(mismatchMask & fg);
             mismatchPct_fg  = 100 * double(numMismatchFG) / double(numFG);
             matchPct_fg     = 100 - mismatchPct_fg;
     
-            % 2) ako compareSymmetry daje pouzdaniju metriku, uzmi nju
             match_frac = getMetric(metrics, {'match_frac','matchFrac','match_fraction'}, NaN);
             if ~isnan(match_frac), matchPct = 100*double(match_frac);
             else,                  matchPct = matchPct_fg;
             end
             mismatchPct = 100 - matchPct;
     
-            % 3) kombinovana odluka (više je bolje)
             ssim_val = getMetric(metrics, {'SSIM','ssim'}, NaN);
             dice_val = getMetric(metrics, {'dice_edges','dice','edge_dice'}, NaN);
             ssim_ok  = ~isnan(ssim_val) && ssim_val >= 0.75;
             dice_ok  = ~isnan(dice_val) && dice_val >= 0.50;
             frac_ok  = matchPct >= S.symThresh;     % npr. 60%
             isSym    = ssim_ok || dice_ok || frac_ok;
-            % -------------------------------------------------------
     
-            % zapamti
             res = struct('numMismatch',numMismatch, ...
                          'mismatchPct',mismatchPct, ...
                          'matchPct',matchPct, ...
@@ -284,7 +275,6 @@ function main_gui
             S.results(S.currentIndex) = res;
             S.metrics(S.currentIndex) = metrics;
     
-            % prikaži + osa isečena
             showResults(I, mismatchMask, [], S.handles.ax, [], [], metrics);
             hold(S.handles.ax,'on');
             [xseg,yseg] = clipLineToImage(slope,intercept,size(I));
@@ -293,7 +283,6 @@ function main_gui
             end
             hold(S.handles.ax,'off');
     
-            % snimanje na disk (standardni rezultati)
             dirs = getDefaultDirs();
             baseName = S.files(S.currentIndex).name;
             saveResultsCSV(dirs.results, baseName, res);
@@ -308,14 +297,12 @@ function main_gui
     
             src.Parent.UserData = S;
     
-            % ODMAH osveži desnu listu i tabelu
             refreshOutputsList(baseName);
             symTxt = tern(isSym,'DA','NE');
             S.handles.tbl.Data = {S.files(S.currentIndex).name, matchPct, mismatchPct, symTxt, shift, areaRatio};
         end
     
         function onSaveView(~,~)
-            % Snimi ono što je trenutno prikazano u glavnoj osi (sa timestamp-om)
             S = fig.UserData;
             dirs = getDefaultDirs();
             if ~exist(dirs.results,'dir'), mkdir(dirs.results); end
@@ -330,7 +317,6 @@ function main_gui
                 saveCurrentAxesPNG(dirs.results, sprintf('%s_%s.png', base, stamp), S.handles.ax);
                 uialert(S.handles.fig, sprintf('Sačuvano:\n%s', fn), 'OK');
             catch ME
-                % fallback ako util ne postoji
                 try
                     frame = getframe(S.handles.ax);
                     imwrite(frame.cdata, fn);
@@ -339,11 +325,10 @@ function main_gui
                     uialert(S.handles.fig, ME.message, 'Greška pri snimanju');
                 end
             end
-            refreshOutputsList(); % osveži listu nakon snimanja
+            refreshOutputsList(); 
         end
     
         function onInfo(~,~)
-            % Kratko objašnjenje metrika i praga
             S = fig.UserData;
             msg = sprintf([ ...
                 'Objašnjenje metrika:\n' ...
@@ -365,35 +350,31 @@ function main_gui
             uialert(S.handles.fig,'Nije izabrana slika.','Info'); return;
         end
     
-        % privremeno onemogući glavne kontrole (opciono, ali progress dlg je već modal)
         ctrls = [S.handles.btnLoad S.handles.btnDefine S.handles.btnProcess ...
                  S.handles.btnSaveView S.handles.btnInfo S.handles.btnAuto ...
                  S.handles.tglDCM S.handles.tglRAST S.handles.lst S.handles.lstOut];
         set(ctrls, 'Enable','off');
     
         try
-            I = getImageAt(S.currentIndex);  % tvoja postojeća funkcija u main_gui
+            I = getImageAt(S.currentIndex);  
             [m, b, ~] = autoDetect(I, ...
                 'ax',  S.handles.ax, ...
                 'fig', S.handles.fig, ...
                 'thresholdPct', S.symThresh, ...
                 'useScore', true);
     
-            % Sačuvaj osu u state i osveži prikaz
             S.axisParams(S.currentIndex) = [m,b];
             src.Parent.UserData = S;
-            showCurrent();  % već boji osu na glavnoj osi
+            showCurrent();  
     
         catch ME
             uialert(S.handles.fig, ME.message, 'Greška (auto detekcija)');
         end
     
-        % re-enable
         try set(ctrls,'Enable','on'); catch, end
     end
 
 
-    % --------- Desni preglednik izlaza ---------
     function refreshOutputsList(selectBase)
         if nargin<1, selectBase=''; end
         S = fig.UserData;
@@ -429,28 +410,26 @@ function main_gui
         end
     end
 
-    % --------- Geometrija: iseći pravu na okvir slike ---------
     function [xseg,yseg] = clipLineToImage(slope, intercept, imgSize)
         H = imgSize(1); W = imgSize(2);
         m = slope; b = intercept;
 
-        pts = []; % [x y]
-        % preseci sa x = 1 i x = W
+        pts = []; 
         y1 = m*1 + b;   if y1>=1 && y1<=H, pts(end+1,:) = [1, y1]; end 
         yW = m*W + b;   if yW>=1 && yW<=H, pts(end+1,:) = [W, yW]; end 
-        % preseci sa y = 1 i y = H  (ako |m|>0)
+        
         if abs(m) > eps
             x1 = (1 - b)/m;  if x1>=1 && x1<=W, pts(end+1,:) = [x1, 1]; end 
             xH = (H - b)/m;  if xH>=1 && xH<=W, pts(end+1,:) = [xH, H]; end 
         else
-            % horizontalna linija
+            
             y = b; if y>=1 && y<=H, pts = [1,y; W,y]; end
         end
 
         if isempty(pts)
             xseg = []; yseg = []; return;
         end
-        % jedinstvene i najviše dve najudaljenije
+        
         pts = round(pts,6);
         [~, ia] = unique(pts,'rows','stable'); pts = pts(ia,:);
         if size(pts,1) > 2
@@ -470,13 +449,11 @@ function main_gui
         end
     end
 
-    % --------- HELPERI ---------
     function y = tern(cond,a,b)
         if cond, y=a; else, y=b; end
     end
 
     function fg = computeForegroundMask(I, Iref)
-        % robustna maska foreground-a (ignoriše veliku pozadinu)
         if ~isfloat(I),    I    = im2double(I);    end
         if ~isfloat(Iref), Iref = im2double(Iref); end
         I   = mat2gray(I);    Iref = mat2gray(Iref);
@@ -491,7 +468,6 @@ function main_gui
     end
 
     function val = getMetric(M, names, defaultVal)
-        % pokušaj više naziva polja (robustno na različita imena)
         val = defaultVal;
         if ~isstruct(M), return; end
         for k=1:numel(names)
