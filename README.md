@@ -16,7 +16,7 @@ project_root/
 │ ├─ reflectImageOverLine.m     # Refleksija slike oko ose
 │ ├─ compareSymmetry.m          # Proračun metrika simetrije
 │ ├─ showResults.m              # Vizuelizacija i eksport
-| ├─ autoDetect.m               # Automatska pretraga fotografije na osu simetrije
+│ ├─ autoDetect.m               # Automatska pretraga ose simetrije
 │ └─ utils_functions.m          # Pomoćne funkcije
 ├─ results/                     # Generisani rezultati i izveštaji
 └─ project_gamma_symmetry.m     # fajl koji je potrebno pokrenuti u komandnoj liniji
@@ -35,7 +35,6 @@ project_root/
 
 ### 2. Definisanje ose simetrije (`defineAxis.m`)
 - **Ručni mod:** korisnik klikom unosi osu simetrije (npr. očekivana anatom­ska osa tela).
-- **Automatski mod:** računa se predlog ose (npr. glavna komponenta preko PCA ili momenata).
 - Parametri: položaj centra i ugao nagiba ose.
 
 ---
@@ -82,30 +81,33 @@ Za svaku sliku generiše se:
   - CSV fajl sa metrikama,
   - MAT fajl sa mapama i numeričkim vrednostima.
 
-## Brzi start (primer batch obrade)
+---
 
-```matlab
-inDir  = fullfile(pwd, 'data', 'original_images');
-outDir = fullfile(pwd, 'results');
+### 6. Automatska detekcija ose (`autoDetect.m`)
+Ova funkcionalnost omogućava da se osa simetrije pronađe potpuno automatski, bez ručnog klikanja korisnika. Implementacija je **dvofazna (coarse→fine) pretraga**:
 
-files = dir(fullfile(inDir, '*.*'));
-[imgs, metas] = loadImages(files);
+1. **Coarse pretraga (grubi korak)**  
+   - Ispituju se kandidati za osu u opsegu **0–360°**, sa unapred zadatim korakom (npr. 6°).  
+   - Za svaku osu, pomera se kroz više offseta (pomeraja od centra).  
+   - Računaju se brze metrike sličnosti (`quickMetrics`):
+     - Pixel match fraction,
+     - SSIM,
+     - Dice overlap ivica,
+     - Cross-correlation.  
+   - Kombinovani skor se koristi kao kriterijum.
 
-for k = 1:numel(imgs)
-    I = imgs{k};
+2. **Fine pretraga (fino podešavanje)**  
+   - Oko najbolje pronađene ose iz coarse faze, testira se uži opseg:
+     - Uglovi ±3° oko najbolje vrednosti (korak 1°),
+     - Offset ±5 px od najboljeg.  
+   - Time se vrši lokalno „doterivanje".
 
-    % Definiši osu simetrije
-    axisParams = defineAxis(I, 'mode','auto', 'snapTo','vertical');
+3. **Rezultat**  
+   - Vraća se **nagib i odsečak prave** u koordinatama slike.  
+   - Na glavnom prikazu u GUI-u crta se crvena linija isečena na okvir slike.  
+   - Izračunava se i indikator `isSymmetric` (DA/NE) na osnovu praga (`thresholdPct`, default 60%).  
+   - Uz progres bar (`uiprogressdlg`) korisnik može pratiti koliko je testova ostalo i opcionalno prekinuti računanje.
 
-    % Reflektuj
-    I_ref = reflectImageOverLine(I, axisParams, 'interp','bicubic');
+---
 
-    % Izračunaj metrike
-    metrics = compareSymmetry(I, I_ref, 'tau',0.05, 'useSSIM',true);
-
-    % Prikaži i sačuvaj
-    showResults(I, I_ref, axisParams, metrics, outDir, metas{k});
-end
-
-```
 **Napomena:** Projekat je edukativnog karaktera i namenjen je za demonstraciju algoritama obrade slike u medicinskim aplikacijama.
