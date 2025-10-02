@@ -74,7 +74,7 @@ function [slope, intercept, best] = autoDetect(I, varargin)
         th = thetas(it);
         m  = slopeFromTheta(th);
 
-        n = [-m, 1]; n = n / max(eps, hypot(n(1),n(2)));   % jedinična normala
+        n = [-m, 1]; n = n / max(eps, hypot(n(1),n(2)));  
 
         for io = 1:numel(offsets_s)
             t = offsets_s(io);
@@ -84,11 +84,11 @@ function [slope, intercept, best] = autoDetect(I, varargin)
             Iref_s = reflectImageOverLine(Is, m, b_small);
             metrics = quickMetrics(Is, Iref_s);
 
-            scPct = scoreFromMetrics(metrics, P.useScore); % 0..100
+            scPct = scoreFromMetrics(metrics, P.useScore); 
             if scPct > best.scorePct
                 best.scorePct  = scPct;
                 best.theta_deg = th;
-                best.offset_px = t/scale;    % u velikim pikselima (radi konzistentnosti)
+                best.offset_px = t/scale;    
                 best.metrics   = metrics;
                 best.m         = m;
                 best.b         = toLargeB(b_small);
@@ -115,8 +115,8 @@ function [slope, intercept, best] = autoDetect(I, varargin)
     end
 
     % ===================== FAZA 2: FINE =====================
-    % oko najboljeg: θ ±3° sa korakom 1°, offset ±5 px (u velikim px, prevodimo u small)
-    thetaFine = wrapTo360(best.theta_deg + (-6:1:+6));  % ±3° sa KORAKOM 1°
+    % oko najboljeg: θ ±6° sa korakom 1°, offset ±5 px (u velikim px, prevodimo u small)
+    thetaFine = wrapTo360(best.theta_deg + (-6:1:+6));  % ±6° sa KORAKOM 1°
     dOffBig   = -5:1:+5;                                 % ±5 px
 
     dOffSmall = round(dOffBig * scale);
@@ -148,7 +148,7 @@ function [slope, intercept, best] = autoDetect(I, varargin)
                 best.b         = toLargeB(b_small);
             end
 
-            % progress (dodajemo na već završene coarse testove)
+            % progress (dodajemo na već završene testove)
             kdone = kdone + 1;
             if ~isempty(dlg) && (toc(lastUpdate) > 0.03)
                 dlg.Value   = min(1, kdone/totalAll);
@@ -170,18 +170,16 @@ function [slope, intercept, best] = autoDetect(I, varargin)
     closeSafe(dlg);
 end
 
-% ---------- pomoćne / "inline" funkcije ----------
 function m = slopeFromTheta(thDeg)
-    % izbegava infinita oko 90/270°
     epsd = 1e-6;
     m = sind(thDeg) / max(epsd, cosd(thDeg));
 end
 
 function val = scoreFromMetrics(metrics, useScore)
     if useScore && isfield(metrics,'symmetry_score') && ~isempty(metrics.symmetry_score)
-        val = double(metrics.symmetry_score);   % 0..100
+        val = double(metrics.symmetry_score);   
     else
-        val = 100*double(metrics.match_frac);   % 0..100
+        val = 100*double(metrics.match_frac);   
     end
 end
 
@@ -204,7 +202,6 @@ function closeSafe(dlg)
     end
 end
 
-% ===== brzi evaluator (isti kao ranije) =====
 function M = quickMetrics(I, Iref)
     I    = im2double(I); Iref = im2double(Iref);
     valid = (I > 0.03) | (Iref > 0.03);

@@ -25,7 +25,7 @@ function project_gamma_symmetry(mode, varargin)
             for k = 1:numel(imgs)
                 f = fullfile(imgs(k).folder, imgs(k).name);
                 I = read_image_auto(f);
-                % jednostavna osa: sredina slike, vertikalna
+
                 m = 0; b = size(I,1)/2;
                 Iref = reflectImageOverLine(I,m,b);
                 [nm,sh,ar,mask] = compareSymmetry(I,Iref);

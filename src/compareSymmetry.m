@@ -34,18 +34,15 @@ function [numMismatch, shift, areaRatio, mismatchMask, metrics] = compareSymmetr
     thr_g = max( eps, prctile(g_all(fg), 70) );  % adaptivno – gornjih ~30% je "salient"
     sal   = (g1 > thr_g) | (g2 > thr_g);
 
-    % ---------- adaptivni pragovi za meč ----------
-    % uzmi srednji do visoki percentile; obezbedi donju granicu
-    Tzncc = max(0.45, prctile(zncc(fg), 60));    % 0.45–0.8 tipično
-    Tgrad = max(0.50, prctile(cosabs(fg), 60));  % 0.5–0.9 tipično
+    Tzncc = max(0.45, prctile(zncc(fg), 60));    
+    Tgrad = max(0.50, prctile(cosabs(fg), 60));  
 
-    valid = fg; % samo na foreground pikselima
+    valid = fg; 
     match_local = valid & (zncc >= Tzncc) & (cosabs >= Tgrad) & sal;
 
     mismatchMask = valid & ~match_local;
     numMismatch  = nnz(mismatchMask);
 
-    % ---------- pomeraj i odnos površina (samo na FG mismatchevima) ----------
     CC = bwconncomp(mismatchMask);
     stats = regionprops(CC, 'Centroid', 'Area');
     if numel(stats) >= 2
@@ -59,24 +56,19 @@ function [numMismatch, shift, areaRatio, mismatchMask, metrics] = compareSymmetr
         shift = NaN; areaRatio = NaN;
     end
 
-    % ---------- globalne metrike s robusnim rukovanjem ----------
     ssim_val = safeSSIM(I, Iref);
     corr_val = safeCorr2(I, Iref);
 
-    % Dice/Jaccard na ivicama (na FG regionu)
     [dice_edges, jaccard_edges, hausdorff_edges, chamfer_mean, chamfer_max] = edgeMetrics(I, Iref, fg);
 
-    % Frakcije (samo FG)
     match_frac    = nnz(match_local) / max(1, nnz(valid));
     mismatch_frac = 1 - match_frac;
 
-    % ---------- permutaciona nulta distribucija (opciono) ----------
-    % Napomena: više nije "kazna" (ne poništavamo rezultat), već samo indikator.
+   
     null_fracs = permutationNullSymmetry(I, 8, win, Tzncc, Tgrad, thr_g); % 8 je dovoljno brzo u GUI-ju
     null95 = prctile(null_fracs, 95);
     significant = match_frac > null95;
 
-    % Skor (0–100): težine podesive
     w_match = 0.45; w_ssim = 0.25; w_edges = 0.20; w_corr = 0.10;
     ssim_n  = clamp01(ssim_val);
     corr_n  = clamp01((corr_val+1)/2);
@@ -84,7 +76,6 @@ function [numMismatch, shift, areaRatio, mismatchMask, metrics] = compareSymmetr
     score01 = w_match*match_frac + w_ssim*ssim_n + w_edges*edges_n + w_corr*corr_n;
     symmetry_score = 100 * score01 * (1 - 0.15*mismatch_frac);
 
-    % ---------- pakovanje izlaza ----------
     metrics = struct( ...
         'ssim', ssim_val, ...
         'corr_intensity', corr_val, ...
@@ -98,20 +89,18 @@ function [numMismatch, shift, areaRatio, mismatchMask, metrics] = compareSymmetr
         'symmetry_score', symmetry_score, ...
         'significant', significant, ...
         'null95_match_frac', null95, ...
-        'match_mask', match_local, ...   % << za overlay ako želiš
+        'match_mask', match_local, ...   
         'zncc', zncc, ...
         'grad_consistency', cosabs, ...
         'thresholds', struct('Tzncc',Tzncc,'Tgrad',Tgrad,'thr_g',thr_g) ...
     );
 end
 
-% ================= helpers =================
 
 function fg = computeForeground(I, Iref)
-    % Otsu + relativni prag + čišćenje; radi nad obe slike pa spaja.
     t1 = graythresh(I);
     t2 = graythresh(Iref);
-    t  = max([t1, t2, 0.05]);           % donji limit (0.05)
+    t  = max([t1, t2, 0.05]);           
     fg = (I >= t) | (Iref >= t);
     fg = bwareaopen(fg, max(30, round(0.0005*numel(I))));
     fg = imfill(fg,'holes');
@@ -130,11 +119,9 @@ function Z = localZNCC(A, B, win)
 end
 
 function null_fracs = permutationNullSymmetry(I, K, win, Tzncc, Tgrad, thr_g)
-    % Generiše "fake" ose da bi se videlo koliki match se dobija slučajno.
     [H,W] = size(I);
     null_fracs = zeros(1,K);
     for k = 1:K
-        % nasumične male rot/trans devijacije oko centra
         dtheta = deg2rad( -15 + 30*rand );
         dm     = tan(dtheta);
         db     = (rand-0.5) * 0.08 * max(H,W);
@@ -189,10 +176,10 @@ function [dice_edges, jaccard_edges, hausdorff_edges, chamfer_mean, chamfer_max]
     sumE   = nnz(E1) + nnz(E2);
     unionE = nnz(E1 | E2);
 
-    dice_edges    = inter / max(1, 0.5*sumE);   % ekvivalent 2*inter/sumE
+    dice_edges    = inter / max(1, 0.5*sumE);  
     jaccard_edges = inter / max(1, unionE);
 
-    % Chamfer/Hausdorff
+    
     if any(E1(:)) && any(E2(:))
         d1 = bwdist(E2);
         d2 = bwdist(E1);
